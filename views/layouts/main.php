@@ -16,6 +16,7 @@ AppAsset::register($this);
 $this->registerCsrfMetaTags();
 $this->registerMetaTag(['charset' => Yii::$app->charset], 'charset');
 $this->registerJsFile(Url::to('@web/js/index.js'), ['depends' => [\yii\web\JqueryAsset::class]]);
+$this->registerJsFile(Url::to('@web/js/sendAjaxRequest.js'), ['depends' => [\yii\web\JqueryAsset::class]]);
 $this->registerMetaTag(['name' => 'viewport', 'content' => 'width=device-width, initial-scale=1, shrink-to-fit=no']);
 $this->registerMetaTag(['name' => 'description', 'content' => $this->params['meta_description'] ?? '']);
 $this->registerMetaTag(['name' => 'keywords', 'content' => $this->params['meta_keywords'] ?? '']);
@@ -41,9 +42,6 @@ $this->registerLinkTag(['rel' => 'icon', 'type' => 'image/x-icon', 'href' => Yii
     ]);
     echo Nav::widget([
         'options' => ['class' => 'navbar-nav'],
-        'items' => [
-            ['label' => 'Офферы', 'url' => ['/offer/index']],
-        ],
     ]);
     NavBar::end();
     ?>

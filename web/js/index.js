@@ -3,104 +3,83 @@ const csrfToken = "<?= Yii::$app->request->getCsrfToken() ?>";
 
 // Функция для обновления списка офферов без перезагрузки страницы
 function refreshOffersList() {
-  $.ajax({
-    url: "/offer/index",
-    type: "GET",
-    dataType: "html",
-    success: function (data) {
-      $("#offers-table tbody").html(data);
-    },
-    error: function () {
-      alert("Произошла ошибка при обновлении списка офферов");
-    },
+  sendAjaxRequest("/offer/index", "GET", {}, function (data) {
+    $("#offers-table tbody").html(data);
   });
 }
 
-// Обработчик для сохранения изменений в форме редактирования
-$(document).on("click", "#saveChanges", function () {
-  var form = $("#editModal form");
+$(document).on("click", "#saveChanges", function (e) {
+  e.preventDefault();
+  const form = $("#editModal form");
+  let isValid = true;
+  let errorMessage = "";
 
-  $.ajax({
-    url: form.attr("action"),
-    type: "POST",
-    data: form.serialize(),
-    success: function (response) {
+  form
+    .find("input[required], textarea[required], select[required]")
+    .each(function () {
+      if (!$(this).val().trim()) {
+        isValid = false;
+        errorMessage += `Поле "${
+          $(this).attr("placeholder") || $(this).attr("name")
+        }" обязательно для заполнения.\n`;
+        $(this).addClass("is-invalid");
+      } else {
+        $(this).removeClass("is-invalid");
+      }
+    });
+
+  if (!isValid) {
+    alert(errorMessage);
+    return;
+  }
+
+  sendAjaxRequest(
+    form.attr("action"),
+    "POST",
+    form.serialize(),
+    function (response) {
       if (response.success) {
-        alert("Изменения сохранены!");
         $("#editModal").modal("hide");
-        refreshOffersList(); // Обновляем список офферов после успешного сохранения
+        refreshOffersList();
       } else {
-        // Обработка ошибок валидации
-        if (response.errors) {
-          for (var field in response.errors) {
-            response.errors[field].forEach(function (message) {
-              alert(message); // Выводим каждое сообщение об ошибке
-            });
-          }
-        } else {
-          alert("Ошибка при сохранении изменений: " + response.message);
-        }
+        alert("Произошла ошибка при сохранении изменений.");
       }
-    },
-    error: function (xhr) {
-      // Обработка HTTP ошибки 409 (конфликт)
-      if (xhr.status === 409) {
-        var response = JSON.parse(xhr.responseText);
-        if (response.errors) {
-          for (var field in response.errors) {
-            response.errors[field].forEach(function (message) {
-              alert(message); // Выводим ошибки для полей
-            });
-          }
-        }
-      } else {
-        alert("Произошла ошибка при сохранении изменений");
-      }
-    },
+    }
+  );
+});
+
+// Обработчик для открытия формы создания оффера
+$(document).on("click", "#create-offer", function () {
+  sendAjaxRequest("/offer/create", "GET", {}, function (data) {
+    $("#editModal .modal-body").html(data);
+    $("#editModalLabel").text("Создать оффер");
+    $("#editModal").modal("show");
   });
 });
 
 // Обработчик для открытия формы редактирования при клике на строку оффера
 $(document).on("click", ".offer-row", function (e) {
-  if ($(e.target).hasClass("delete-offer")) return; // Игнорируем клик по кнопке удаления
+  if ($(e.target).hasClass("delete-offer")) return;
 
-  var offerId = $(this).data("id");
+  const offerId = $(this).data("id");
 
-  $.ajax({
-    url: "/offer/update",
-    type: "GET",
-    data: { id: offerId },
-    success: function (data) {
-      $("#editModal .modal-body").html(data);
-      $("#editModal").modal("show");
-    },
-    error: function () {
-      alert("Не удалось загрузить данные для редактирования");
-    },
+  sendAjaxRequest("/offer/update", "GET", { id: offerId }, function (data) {
+    $("#editModal .modal-body").html(data);
+    $("#editModalLabel").text("Редактировать оффер");
+    $("#editModal").modal("show");
   });
 });
 
 // Обработчик для удаления оффера
 $(document).on("click", ".delete-offer", function (e) {
   e.preventDefault();
-  var url = $(this).attr("href");
+  const url = $(this).attr("href");
 
   if (confirm("Вы уверены, что хотите удалить этот оффер?")) {
-    $.ajax({
-      url: url,
-      type: "POST",
-      data: { _csrf: csrfToken },
-      success: function (response) {
-        if (response.success) {
-          alert("Оффер успешно удален!");
-          refreshOffersList(); // Обновляем список после удаления
-        } else {
-          alert("Ошибка при удалении оффера: " + response.message);
-        }
-      },
-      error: function () {
-        alert("Произошла ошибка при удалении");
-      },
+    sendAjaxRequest(url, "POST", { _csrf: csrfToken }, function (response) {
+      if (response.success) {
+        refreshOffersList();
+      }
     });
   }
 });
@@ -109,18 +88,9 @@ $(document).on("click", ".delete-offer", function (e) {
 $(document).on("click", "#apply-filter", function (e) {
   e.preventDefault();
 
-  var search = $("#search").val();
-
-  $.ajax({
-    url: "/offer/index",
-    type: "GET",
-    data: { search: search },
-    success: function (data) {
-      $("#offers-table tbody").html(data);
-    },
-    error: function () {
-      alert("Произошла ошибка при загрузке данных");
-    },
+  const search = $("#search").val();
+  sendAjaxRequest("/offer/index", "GET", { search: search }, function (data) {
+    $("#offers-table tbody").html(data);
   });
 });
 
@@ -128,55 +98,44 @@ $(document).on("click", "#apply-filter", function (e) {
 $(document).on("click", ".sort", function (e) {
   e.preventDefault();
 
-  var $this = $(this);
-  var sortField = $this.data("sort");
-  var currentOrder = $this.data("order");
-  var newOrder = currentOrder === "asc" ? "desc" : "asc";
+  const $this = $(this);
+  const sortField = $this.data("sort");
+  const currentOrder = $this.data("order");
+  const newOrder = currentOrder === "asc" ? "desc" : "asc";
 
-  // Обновление стрелок визуально для сортировки
   $(".sort").each(function () {
     $(this).text("▲").data("order", "asc");
   });
   $this.text(newOrder === "asc" ? "▲" : "▼").data("order", newOrder);
 
-  var search = $("#search").val();
-
-  $.ajax({
-    url: "/offer/index",
-    type: "GET",
-    data: { search: search, sort: sortField, order: newOrder },
-    success: function (data) {
+  const search = $("#search").val();
+  sendAjaxRequest(
+    "/offer/index",
+    "GET",
+    { search: search, sort: sortField, order: newOrder },
+    function (data) {
       $("#offers-table tbody").html(data);
-    },
-    error: function () {
-      alert("Произошла ошибка при загрузке данных");
-    },
-  });
+    }
+  );
 });
 
-// Обработчик для отправки формы создания оффера
+// Обработчик отправки формы создания оффера
 $(document).ready(function () {
   $("#offer-form").on("beforeSubmit", function (e) {
     e.preventDefault();
-    var form = $(this);
+    const form = $(this);
 
-    $.ajax({
-      url: form.attr("action"),
-      type: "POST",
-      data: form.serialize(),
-      success: function (response) {
-        if (response.success) {
-          alert("Оффер успешно сохранен!");
+    if (!form.find(".has-error").length) {
+      sendAjaxRequest(
+        form.attr("action"),
+        "POST",
+        form.serialize(),
+        function () {
           $("#editModal").modal("hide");
-          window.location.href = "/offer/index"; // Перенаправляем после успешного создания
-        } else {
-          form.yiiActiveForm("updateMessages", response.errors, true); // Обновление сообщений об ошибках
+          window.location.href = "/offer/index";
         }
-      },
-      error: function () {
-        alert("Произошла ошибка при отправке данных");
-      },
-    });
+      );
+    }
 
     return false;
   });

@@ -4,10 +4,6 @@ namespace app\models;
 
 use yii\db\ActiveRecord;
 
-/**
- * Модель для работы с таблицей 'offers'.
- * Содержит правила валидации и подписи атрибутов.
- */
 class Offer extends ActiveRecord
 {
     public static function tableName()
